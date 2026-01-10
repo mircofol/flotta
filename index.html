@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionale Flotta Pro 2026</title>
+    <style>
+        :root {
+            --primary: #004085; --secondary: #6c757d; --success: #28a745;
+            --danger: #dc3545; --warning: #ffc107; --light: #f8f9fa; --dark: #343a40;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: #e9ecef; margin: 0; padding-bottom: 70px; }
+        .header { background: var(--primary); color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 1000; }
+        .container { padding: 15px; max-width: 600px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        
+        /* Input e Bottoni */
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; font-size: 16px; transition: 0.3s; }
+        .btn-blue { background: var(--primary); }
+        .btn-green { background: var(--success); }
+        .btn-red { background: var(--danger); }
+        .btn-orange { background: var(--warning); color: black; }
+
+        /* Tabs Navigation */
+        .tab-content { display: none; }
+        .active { display: block; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+        .nav-item { flex: 1; padding: 12px 5px; text-align: center; font-size: 10px; color: var(--secondary); cursor: pointer; }
+        .active-nav { color: var(--primary); border-top: 3px solid var(--primary); font-weight: bold; }
+        
+        .timer-badge { background: #ffeeba; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin: 10px 0; border: 1px solid #ffeeba; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <strong>GESTIONE FLOTTA</strong><br>
+    <small id="gps-status">📡 GPS: Ricerca segnale...</small>
+</div>
+
+<div class="container">
+    <div class="card">
+        <input type="text" id="main-autista" placeholder="Nome Autista">
+        <input type="text" id="main-targa" placeholder="Targa del Mezzo (es. AB123CD)" oninput="this.value = this.value.toUpperCase()">
+    </div>
+
+    <div id="tab1" class="tab-content active">
+        <div class="card">
+            <h3>🚚 Inizio/Fine Viaggio</h3>
+            <input type="text" id="v-distinta" placeholder="N° Distinta / Documento">
+            <input type="number" id="v-km" placeholder="KM Attuali del Mezzo">
+            <button class="btn btn-blue" onclick="invia('INIZIO_CARICO')">INIZIA CARICO</button>
+            <button class="btn btn-green" onclick="invia('FINE_CARICO')">CONSEGNA COMPLETATA</button>
+        </div>
+    </div>
+
+    <div id="tab2" class="tab-content">
+        <div class="card">
+            <h3>❄️ Cella Frigo</h3>
+            <div id="timer-label" class="timer-badge">Stato: SPENTO</div>
+            <button id="btn-frigo-on" class="btn btn-green" onclick="toggleFrigo(true)">ACCENDI CELLA</button>
+            <button id="btn-frigo-off" class="btn btn-red" onclick="toggleFrigo(false)" style="display:none">SPEGNI CELLA</button>
+        </div>
+        <div class="card">
+            <h3>🔧 Check-up Mezzo</h3>
+            <select id="m-problema">
+                <option value="TUTTO_OK">Tutto in regola</option>
+                <option value="OLIO">Livello Olio Basso</option>
+                <option value="GOMME">Pressione Gomme</option>
+                <option value="LUCI">Lampadina Guasta</option>
+                <option value="PULIZIA">Necessità Lavaggio</option>
+            </select>
+            <button class="btn btn-blue" onclick="invia('CHECK_UP')">INVIA SEGNALAZIONE</button>
+        </div>
+    </div>
+
+    <div id="tab3" class="tab-content">
+        <div class="card">
+            <h3>📂 Archivio Documenti</h3>
+            <button class="btn btn-blue" onclick="window.open('https://tuo-link-onedrive/documenti')">APRI LIBRETTO/ASSICURAZIONE</button>
+        </div>
+        <div class="card" style="border-left: 5px solid var(--danger);">
+            <h3>⚠️ Segnala Verbale/Incidente</h3>
+            <p><small>Usa questo tasto per inviare foto di multe o danni al mezzo.</small></p>
+            <input type="file" id="foto-file" accept="image/*" capture="camera" style="display:none" onchange="processaFoto()">
+            <button class="btn btn-red" onclick="document.getElementById('foto-file').click()">📸 SCATTA FOTO</button>
+        </div>
+    </div>
+
+    <div id="tab4" class="tab-content">
+        <div class="card">
+            <h3>⛽ Rifornimento Gasolio</h3>
+            <input type="number" id="g-litri" placeholder="Litri inseriti" oninput="calcolaResa()">
+            <input type="number" id="g-km-pieni" placeholder="KM percorsi dall'ultimo pieno" oninput="calcolaResa()">
+            <div class="timer-badge">Resa: <span id="g-resa">0.00</span> KM/L</div>
+            <button class="btn btn-orange" onclick="invia('GASOLIO')">SALVA RIFORNIMENTO</button>
+        </div>
+    </div>
+
+    <div id="tab5" class="tab-content">
+        <div class="card">
+            <h3>📅 Richiesta Permessi</h3>
+            <label>Dal giorno:</label><input type="date" id="p-dal">
+            <label>Al giorno:</label><input type="date" id="p-al">
+            <button class="btn btn-blue" onclick="invia('PERMESSO')">INVIA RICHIESTA</button>
+        </div>
+    </div>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active-nav" onclick="switchTab(event, 'tab1')">🏠<br>Viaggi</div>
+    <div class="nav-item" onclick="switchTab(event, 'tab2')">❄️<br>Mezzo</div>
+    <div class="nav-item" onclick="switchTab(event, 'tab3')">📂<br>Doc/Multe</div>
+    <div class="nav-item" onclick="switchTab(event, 'tab4')">⛽<br>Gasolio</div>
+    <div class="nav-item" onclick="switchTab(event, 'tab5')">📅<br>Ferie</div>
+</div>
+
+<script>
+    let frigoStart = null;
+    let coordinateAttuali = "GPS non disponibile";
+    const webhookURL = "https://4b18af589eeeefb899dacc3438db39.53.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a5f124fc30ae4d93bb8f4488c84b551d/triggers/manual/paths/invoke?api-version=1";
+
+    // 1. MONITOR GPS COSTANTE
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+            (p) => {
+                coordinateAttuali = `${p.coords.latitude},${p.coords.longitude}`;
+                document.getElementById('gps-status').innerText = "📡 GPS: Attivo (" + p.coords.accuracy.toFixed(0) + "m)";
+            },
+            (e) => { document.getElementById('gps-status').innerText = "❌ GPS: Disattivato"; },
+            { enableHighAccuracy: true }
+        );
+    }
+
+    // 2. NAVIGAZIONE TAB
+    function switchTab(e, id) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+        document.getElementById(id).classList.add('active');
+        e.currentTarget.classList.add('active-nav');
+    }
+
+    // 3. LOGICA CELLA FRIGO
+    function toggleFrigo(on) {
+        if(on) {
+            frigoStart = new Date();
+            document.getElementById('btn-frigo-on').style.display = 'none';
+            document.getElementById('btn-frigo-off').style.display = 'block';
+            document.getElementById('timer-label').innerText = "ACCESO: " + frigoStart.toLocaleTimeString();
+            invia('CELLA_ON');
+        } else {
+            let fine = new Date();
+            let durata = Math.round((fine - frigoStart) / 60000);
+            document.getElementById('btn-frigo-on').style.display = 'block';
+            document.getElementById('btn-frigo-off').style.display = 'none';
+            document.getElementById('timer-label').innerText = "SPENTO (Ultima: " + durata + " min)";
+            invia('CELLA_OFF', { durata: durata });
+        }
+    }
+
+    // 4. CALCOLO RESA KM/L
+    function calcolaResa() {
+        let km = document.getElementById('g-km-pieni').value;
+        let litri = document.getElementById('g-litri').value;
+        if(km > 0 && litri > 0) document.getElementById('g-resa').innerText = (km / litri).toFixed(2);
+    }
+
+    // 5. GESTIONE FOTO (MULTA/INCIDENTE)
+    function processaFoto() {
+        const file = document.getElementById('foto-file').files[0];
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async function () {
+            const base64Content = reader.result.split(',')[1];
+            invia('MULTA_FOTO', { foto: base64Content, nomeFoto: "Emergenza_" + Date.now() + ".jpg" });
+        };
+    }
+
+    // 6. INVIO DATI A POWER AUTOMATE
+    async function invia(azione, extra = {}) {
+        let autista = document.getElementById('main-autista').value;
+        let targa = document.getElementById('main-targa').value;
+
+        if(!autista || !targa) { alert("Inserisci Nome e Targa!"); return; }
+
+        let payload = {
+            azione: azione,
+            autista: autista,
+            targa: targa,
+            gps: coordinateAttuali,
+            timestamp: new Date().toLocaleString(),
+            distinta: document.getElementById('v-distinta').value,
+            km: document.getElementById('v-km').value,
+            litri: document.getElementById('g-litri').value,
+            resa: document.getElementById('g-resa').innerText,
+            dal: document.getElementById('p-dal').value,
+            al: document.getElementById('p-al').value,
+            problema: document.getElementById('m-problema').value,
+            ...extra
+        };
+
+        try {
+            const res = await fetch(webhookURL, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+            if(res.ok) alert("✅ Dati Inviati con Successo!");
+        } catch(e) { alert("❌ Errore Invio. Controlla Internet."); }
+    }
+</script>
+
+</body>
+</html>
